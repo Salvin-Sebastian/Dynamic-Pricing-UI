@@ -1,6 +1,8 @@
-# DynamicPricingUi
+# Dynamic Pricing UI
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.12.
+![Dynamic Pricing Dashboard UI Screenshot](./screenshot.png)
+
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.12. It provides a state-of-the-art UI for managing complex JSON-based dynamic pricing configurations.
 
 ## Development server
 
