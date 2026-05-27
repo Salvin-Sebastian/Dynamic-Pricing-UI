@@ -1,7 +1,8 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { PricingService } from '../../services/pricing.service';
-import { CommonModule } from '@angular/common';
+import { CommonModule, KeyValuePipe } from '@angular/common';
 import { EditablePriceComponent } from '../editable-price/editable-price.component';
+import { RuiData, StandardCategory, PriceValue } from '../../models/pricing.model';
 
 @Component({
   selector: 'app-pricing-dashboard',
@@ -22,103 +23,104 @@ import { EditablePriceComponent } from '../editable-price/editable-price.compone
         <div class="error-container">
           <p>{{ pricingService.error() }}</p>
         </div>
-      } @else {
-        <!-- Accordions -->
+      } @else if (pricingService.ruiData()) {
+        
         <div class="accordion">
-          <!-- DEFAULT Section -->
-          <div class="accordion-item" [class.open]="isDefaultOpen">
-            <div class="accordion-header" (click)="isDefaultOpen = !isDefaultOpen">
-              DEFAULT 
-              <span class="icon">{{ isDefaultOpen ? '-' : '+' }}</span>
+          <!-- FR Section (2D Grid) -->
+          <div class="accordion-item" [class.open]="openState['fr']">
+            <div class="accordion-header" (click)="toggleAccordion('fr')">
+              FR
+              <span class="icon">{{ openState['fr'] ? '-' : '+' }}</span>
             </div>
-            @if (isDefaultOpen) {
+            @if (openState['fr']) {
               <div class="accordion-body">
-                <button class="add-btn" (click)="addColumn()">+ Add Column</button>
+                <div class="discount-section">
+                  <label>Discount <span class="required">*</span></label>
+                  <app-editable-price 
+                    [value]="pricingService.ruiData()!.fr.discount" 
+                    (valueChange)="pricingService.updateDiscount('fr', $event)">
+                  </app-editable-price>
+                </div>
                 
                 <div class="pricing-grid-container">
-                  <!-- Columns Headers -->
-                  <div class="grid-row header-row">
-                    @for (col of defaultColumns; track $index) {
+                  <!-- Header Row: Item Tiers -->
+                  <div class="grid-row header-row" [style.grid-template-columns]="getGridCols(pricingService.ruiData()!.fr.item_tier.length)">
+                    <div class="grid-cell col-header condition-header">Size / Items</div>
+                    @for (tier of pricingService.ruiData()!.fr.item_tier; track $index) {
                       <div class="grid-cell col-header">
-                        <button class="remove-col-btn" (click)="removeColumn($index)">✖</button>
                         <app-editable-price 
-                          [value]="col" 
-                          (valueChange)="updateColumnQuantity($index, $event)">
+                          [value]="tier" 
+                          (valueChange)="pricingService.updateItemTier('fr', $index, $event)">
                         </app-editable-price>
                       </div>
                     }
                   </div>
                   
-                  <!-- Price Row -->
-                  <div class="grid-row price-labels">
-                    @for (col of defaultColumns; track $index) {
+                  <!-- Body Rows: Sizes -->
+                  @for (sizeTier of pricingService.ruiData()!.fr.size_tier; track sizeTierIndex; let sizeTierIndex = $index) {
+                    <div class="grid-row price-values" [style.grid-template-columns]="getGridCols(pricingService.ruiData()!.fr.item_tier.length)">
+                      <div class="grid-cell label">{{ sizeTier.size }}</div>
+                      @for (price of sizeTier.price; track priceIndex; let priceIndex = $index) {
+                        <div class="grid-cell">
+                          <app-editable-price 
+                            [value]="price" 
+                            (valueChange)="pricingService.updateFrPrice(sizeTierIndex, priceIndex, $event)">
+                          </app-editable-price>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Standard Sections -->
+          @for (cat of standardCategories; track cat) {
+            <div class="accordion-item" [class.open]="openState[cat]">
+              <div class="accordion-header" (click)="toggleAccordion(cat)">
+                {{ cat | uppercase }}
+                <span class="icon">{{ openState[cat] ? '-' : '+' }}</span>
+              </div>
+              @if (openState[cat]) {
+                <div class="accordion-body">
+                  <div class="discount-section">
+                    <label>Discount <span class="required">*</span></label>
+                    <app-editable-price 
+                      [value]="$any(pricingService.ruiData())[cat].discount" 
+                      (valueChange)="pricingService.updateDiscount(cat, $event)">
+                    </app-editable-price>
+                  </div>
+                  
+                  <div class="pricing-grid-container">
+                    <div class="grid-row header-row" [style.grid-template-columns]="getGridCols($any(pricingService.ruiData())[cat].item_tier.length)">
+                      <div class="grid-cell col-header condition-header">Items</div>
+                      @for (tier of $any(pricingService.ruiData())[cat].item_tier; track $index) {
+                        <div class="grid-cell col-header">
+                          <app-editable-price 
+                            [value]="tier" 
+                            (valueChange)="pricingService.updateItemTier(cat, $index, $event)">
+                          </app-editable-price>
+                        </div>
+                      }
+                    </div>
+                    
+                    <div class="grid-row price-values" [style.grid-template-columns]="getGridCols($any(pricingService.ruiData())[cat].price.length)">
                       <div class="grid-cell label">Price</div>
-                    }
-                  </div>
-                  <div class="grid-row price-values">
-                    @for (price of defaultPrices; track $index) {
-                      <div class="grid-cell">
-                        <app-editable-price 
-                          [value]="price" 
-                          (valueChange)="updateColumnPrice($index, $event)">
-                        </app-editable-price>
-                      </div>
-                    }
+                      @for (price of $any(pricingService.ruiData())[cat].price; track $index) {
+                        <div class="grid-cell">
+                          <app-editable-price 
+                            [value]="price" 
+                            (valueChange)="pricingService.updateStandardCategoryPrice(cat, $index, $event)">
+                          </app-editable-price>
+                        </div>
+                      }
+                    </div>
                   </div>
                 </div>
-
-                <div class="discount-section">
-                  <label>Discount <span class="required">*</span></label>
-                  <app-editable-price 
-                    [value]="defaultDiscount" 
-                    (valueChange)="defaultDiscount = $event">
-                  </app-editable-price>
-                </div>
-              </div>
-            }
-          </div>
-
-          <!-- INSERTS Section -->
-          <div class="accordion-item">
-            <div class="accordion-header">
-              INSERTS <span class="icon">+</span>
+              }
             </div>
-          </div>
-          
-          <!-- FR Section -->
-          <div class="accordion-item">
-            <div class="accordion-header">
-              FR <span class="icon">+</span>
-            </div>
-          </div>
-
-          <!-- ADDITIONAL CHARGE Section -->
-          <div class="accordion-item" [class.open]="isAdditionalChargeOpen">
-            <div class="accordion-header" (click)="isAdditionalChargeOpen = !isAdditionalChargeOpen">
-              ADDITIONAL CHARGE <span class="icon">{{ isAdditionalChargeOpen ? '-' : '+' }}</span>
-            </div>
-            @if (isAdditionalChargeOpen) {
-              <div class="accordion-body">
-                <div class="charge-item">
-                  <h4>Blunt Corners</h4>
-                  <label>Price <span class="required">*</span></label>
-                  <app-editable-price [value]="0.14" (valueChange)="0"></app-editable-price>
-                </div>
-                
-                <div class="charge-item">
-                  <h4>Square Corners</h4>
-                  <label>Price <span class="required">*</span></label>
-                  <app-editable-price [value]="0.14" (valueChange)="0"></app-editable-price>
-                </div>
-                
-                <div class="charge-item">
-                  <h4>Irregular Shape</h4>
-                  <label>Percentage <span class="required">*</span></label>
-                  <app-editable-price [value]="20" (valueChange)="0"></app-editable-price>
-                </div>
-              </div>
-            }
-          </div>
+          }
         </div>
       }
     </div>
@@ -128,35 +130,21 @@ import { EditablePriceComponent } from '../editable-price/editable-price.compone
 export class PricingDashboardComponent implements OnInit {
   pricingService = inject(PricingService);
   
-  isDefaultOpen = true;
-  isAdditionalChargeOpen = true;
-
-  // Mock state to reflect the UI until we parse the real 700-line JSON
-  defaultColumns = [1, 5, 6, 12, 25, 26, 50, 75];
-  defaultPrices = [4.52, 4.52, 2.89, 2.89, 2.89, 2.61, 1.98, 1.50];
-  defaultDiscount = 6;
+  openState: Record<string, boolean> = { fr: true };
+  
+  standardCategories: (keyof RuiData)[] = [
+    'fancy', 'hi_vis', 'default', 'inserts', 'reflective', 'fancy_inserts'
+  ];
 
   ngOnInit() {
-    // We will hook this up to the real service once the 700-line JSON is available
-    // this.pricingService.loadPricingData();
-    this.pricingService.loading.set(false);
+    this.pricingService.loadPricingData();
   }
 
-  addColumn() {
-    this.defaultColumns.push(100); // Default placeholder
-    this.defaultPrices.push(0.0);
+  toggleAccordion(id: string) {
+    this.openState[id] = !this.openState[id];
   }
-
-  removeColumn(index: number) {
-    this.defaultColumns.splice(index, 1);
-    this.defaultPrices.splice(index, 1);
-  }
-
-  updateColumnQuantity(index: number, newQty: number) {
-    this.defaultColumns[index] = newQty;
-  }
-
-  updateColumnPrice(index: number, newPrice: number) {
-    this.defaultPrices[index] = newPrice;
+  
+  getGridCols(count: number): string {
+    return `120px repeat(${count}, 1fr)`;
   }
 }

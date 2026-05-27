@@ -1,20 +1,25 @@
 import { Component, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-editable-price',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, CommonModule],
   template: `
     <div class="editable-price" [class.editing]="isEditing()" (click)="startEdit()">
       @if (!isEditing()) {
-        <span class="currency">$</span>
+        @if (isNumeric(value())) {
+          <span class="currency">$</span>
+        }
         <span class="amount">{{ value() }}</span>
       } @else {
         <div class="input-wrapper">
-          <span class="currency-prefix">$</span>
+          @if (isNumeric(value())) {
+            <span class="currency-prefix">$</span>
+          }
           <input 
-            type="number" 
+            type="text" 
             [ngModel]="editValue()"
             (ngModelChange)="editValue.set($event)"
             (blur)="saveEdit()"
@@ -79,28 +84,20 @@ import { FormsModule } from '@angular/forms';
       text-align: right;
       padding: 4px;
     }
-    
-    /* Remove arrows from number input */
-    .price-input::-webkit-outer-spin-button,
-    .price-input::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    .price-input[type=number] {
-      -moz-appearance: textfield;
-    }
   `]
 })
 export class EditablePriceComponent {
-  // Use Signal Inputs for modern Angular
-  value = input.required<number>();
+  value = input.required<number | string>();
   
-  // Output event when value is successfully saved
-  valueChange = output<number>();
+  valueChange = output<number | string>();
   
-  // Internal component state
   isEditing = signal(false);
-  editValue = signal<number>(0);
+  editValue = signal<number | string>(0);
+
+  isNumeric(val: string | number): boolean {
+    if (typeof val === 'number') return true;
+    return !isNaN(parseFloat(val)) && isFinite(Number(val));
+  }
 
   startEdit() {
     if (!this.isEditing()) {
@@ -111,7 +108,15 @@ export class EditablePriceComponent {
 
   saveEdit() {
     if (this.isEditing()) {
-      const newVal = this.editValue();
+      let newVal = this.editValue();
+      
+      // Attempt to parse string to number if it looks like one
+      if (typeof newVal === 'string' && newVal.trim() !== '') {
+        if (!isNaN(Number(newVal))) {
+          newVal = Number(newVal);
+        }
+      }
+      
       if (newVal !== this.value() && newVal !== null && newVal !== undefined) {
         this.valueChange.emit(newVal);
       }

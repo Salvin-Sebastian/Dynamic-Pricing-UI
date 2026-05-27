@@ -1,6 +1,6 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { PricingTier, PricingData } from '../models/pricing.model';
+import { PricingDataRoot, RuiData, PriceValue } from '../models/pricing.model';
 import { tap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 
@@ -11,7 +11,7 @@ export class PricingService {
   private http = inject(HttpClient);
   
   // Primary state signal
-  public pricingTiers = signal<PricingTier[]>([]);
+  public ruiData = signal<RuiData | null>(null);
   public loading = signal<boolean>(true);
   public error = signal<string | null>(null);
 
@@ -19,10 +19,10 @@ export class PricingService {
 
   loadPricingData() {
     this.loading.set(true);
-    this.http.get<PricingData>('/Pricing.json').pipe(
+    this.http.get<PricingDataRoot>('/Pricing.json').pipe(
       tap(data => {
-        if (data && data.pricingTiers) {
-          this.pricingTiers.set(data.pricingTiers);
+        if (data && data.data && data.data.embroidered_specials && data.data.embroidered_specials.rui) {
+          this.ruiData.set(data.data.embroidered_specials.rui);
         }
         this.loading.set(false);
       }),
@@ -34,80 +34,86 @@ export class PricingService {
     ).subscribe();
   }
 
-  // Column management
-  addColumn(newTier: PricingTier) {
-    this.pricingTiers.update(tiers => [...tiers, newTier]);
-  }
+  // --- Example granular updates (can be expanded as needed) ---
 
-  removeColumn(tierId: string) {
-    this.pricingTiers.update(tiers => tiers.filter(t => t.id !== tierId));
-  }
-
-  // Update specific tier property
-  updateTierName(tierId: string, newName: string) {
-    this.pricingTiers.update(tiers => 
-      tiers.map(tier => tier.id === tierId ? { ...tier, name: newName } : tier)
-    );
-  }
-
-  // Cell updates
-  updateFlatPrice(tierId: string, index: number, newPrice: number) {
-    this.pricingTiers.update(tiers => tiers.map(tier => {
-      if (tier.id === tierId) {
-        const flatPricing = [...tier.flatPricing];
-        flatPricing[index] = { ...flatPricing[index], price: newPrice };
-        return { ...tier, flatPricing };
-      }
-      return tier;
-    }));
-  }
-
-  updateSizeBasedPrice(tierId: string, index: number, newPrice: number) {
-    this.pricingTiers.update(tiers => tiers.map(tier => {
-      if (tier.id === tierId) {
-        const sizeBasedPricing = [...tier.sizeBasedPricing];
-        sizeBasedPricing[index] = { ...sizeBasedPricing[index], price: newPrice };
-        return { ...tier, sizeBasedPricing };
-      }
-      return tier;
-    }));
-  }
-
-  updateAdditionalChargeFixed(tierId: string, newPrice: number) {
-    this.pricingTiers.update(tiers => tiers.map(tier => {
-      if (tier.id === tierId) {
-        return { 
-          ...tier, 
-          additionalCharges: { ...tier.additionalCharges, fixed: newPrice } 
+  // Standard category price updates
+  updateStandardCategoryPrice(category: keyof RuiData, index: number, newPrice: PriceValue) {
+    this.ruiData.update(data => {
+      if (!data) return data;
+      const targetCategory = data[category];
+      // Only valid for standard categories containing a 'price' array
+      if (targetCategory && 'price' in targetCategory && Array.isArray(targetCategory.price)) {
+        const updatedPrices = [...targetCategory.price];
+        updatedPrices[index] = newPrice;
+        return {
+          ...data,
+          [category]: {
+            ...targetCategory,
+            price: updatedPrices
+          }
         };
       }
-      return tier;
-    }));
+      return data;
+    });
   }
 
-  updateAdditionalChargePercentage(tierId: string, newPercentage: number) {
-    this.pricingTiers.update(tiers => tiers.map(tier => {
-      if (tier.id === tierId) {
-        return { 
-          ...tier, 
-          additionalCharges: { ...tier.additionalCharges, percentage: newPercentage } 
-        };
-      }
-      return tier;
-    }));
+  // FR Category Price updates (2D grid)
+  updateFrPrice(sizeIndex: number, itemIndex: number, newPrice: PriceValue) {
+    this.ruiData.update(data => {
+      if (!data || !data.fr) return data;
+      const updatedSizeTiers = [...data.fr.size_tier];
+      const targetSize = { ...updatedSizeTiers[sizeIndex] };
+      const updatedPrices = [...targetSize.price];
+      
+      updatedPrices[itemIndex] = newPrice;
+      targetSize.price = updatedPrices;
+      updatedSizeTiers[sizeIndex] = targetSize;
+      
+      return {
+        ...data,
+        fr: {
+          ...data.fr,
+          size_tier: updatedSizeTiers
+        }
+      };
+    });
   }
 
-  updateAdditionalChargeTierBased(tierId: string, index: number, newPrice: number) {
-    this.pricingTiers.update(tiers => tiers.map(tier => {
-      if (tier.id === tierId) {
-        const tierBased = [...tier.additionalCharges.tierBased];
-        tierBased[index] = { ...tierBased[index], price: newPrice };
-        return { 
-          ...tier, 
-          additionalCharges: { ...tier.additionalCharges, tierBased } 
+  // Update item tiers (columns)
+  updateItemTier(category: keyof RuiData, index: number, newTier: PriceValue) {
+    this.ruiData.update(data => {
+      if (!data) return data;
+      const targetCategory = data[category];
+      if (targetCategory && 'item_tier' in targetCategory && Array.isArray(targetCategory.item_tier)) {
+        const updatedTiers = [...targetCategory.item_tier];
+        // Parse numbers when possible, but allow strings if the user types them
+        updatedTiers[index] = typeof newTier === 'string' && !isNaN(Number(newTier)) ? Number(newTier) : newTier as number;
+        return {
+          ...data,
+          [category]: {
+            ...targetCategory,
+            item_tier: updatedTiers
+          }
         };
       }
-      return tier;
-    }));
+      return data;
+    });
+  }
+
+  updateDiscount(category: keyof RuiData, newDiscount: PriceValue) {
+    this.ruiData.update(data => {
+      if (!data) return data;
+      const targetCategory = data[category];
+      if (targetCategory && 'discount' in targetCategory) {
+        return {
+          ...data,
+          [category]: {
+            ...targetCategory,
+            discount: typeof newDiscount === 'string' ? Number(newDiscount) : newDiscount
+          }
+        };
+      }
+      return data;
+    });
   }
 }
