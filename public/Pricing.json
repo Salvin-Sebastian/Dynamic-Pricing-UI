@@ -1,0 +1,67 @@
+{
+  "pricingTiers": [
+    {
+      "id": "tier-1",
+      "name": "Basic",
+      "flatPricing": [
+        { "name": "Monthly", "price": 10 },
+        { "name": "Annual", "price": 100 }
+      ],
+      "sizeBasedPricing": [
+        { "size": "Small", "price": 5 },
+        { "size": "Medium", "price": 8 },
+        { "size": "Large", "price": 12 }
+      ],
+      "additionalCharges": {
+        "fixed": 2,
+        "percentage": 5,
+        "tierBased": [
+          { "condition": "Over 100 users", "price": 50 },
+          { "condition": "Over 500 users", "price": 200 }
+        ]
+      }
+    },
+    {
+      "id": "tier-2",
+      "name": "Pro",
+      "flatPricing": [
+        { "name": "Monthly", "price": 25 },
+        { "name": "Annual", "price": 250 }
+      ],
+      "sizeBasedPricing": [
+        { "size": "Small", "price": 10 },
+        { "size": "Medium", "price": 15 },
+        { "size": "Large", "price": 20 }
+      ],
+      "additionalCharges": {
+        "fixed": 5,
+        "percentage": 10,
+        "tierBased": [
+          { "condition": "Over 100 users", "price": 100 },
+          { "condition": "Over 500 users", "price": 400 }
+        ]
+      }
+    },
+    {
+      "id": "tier-3",
+      "name": "Enterprise",
+      "flatPricing": [
+        { "name": "Monthly", "price": 100 },
+        { "name": "Annual", "price": 1000 }
+      ],
+      "sizeBasedPricing": [
+        { "size": "Small", "price": 25 },
+        { "size": "Medium", "price": 40 },
+        { "size": "Large", "price": 60 }
+      ],
+      "additionalCharges": {
+        "fixed": 15,
+        "percentage": 20,
+        "tierBased": [
+          { "condition": "Over 100 users", "price": 250 },
+          { "condition": "Over 500 users", "price": 800 }
+        ]
+      }
+    }
+  ]
+}
